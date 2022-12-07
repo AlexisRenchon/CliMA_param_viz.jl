@@ -193,11 +193,12 @@ end
 using ClimaLSM
 using ClimaLSM.Soil.Biogeochemistry
 using WGLMakie, JSServe, SparseArrays
+using JSServe: rows
 
 function create_plot(sliders1, sliders2, sliders3, sliders4, sliders5, sliders6, sliders7, sliders8, sliders9, sliders10, sliders11, sliders12,
                       sliders13, sliders14, sliders15)
 
-fig = Figure(resolution = (1200, 1000))
+fig = Figure(resolution = (1200, 1200))
 ax3D = Axis3(fig[1:2,1], xlabel = "Soil temperature °C", ylabel = "Soil moisture [m³ m⁻³]")
 axT = Axis(fig[1,2], xlabel = "Soil temperature °C")
 axM = Axis(fig[2,2], xlabel = "Soil moisture [m³ m⁻³]")
@@ -354,6 +355,18 @@ on(sliders1.value) do val
   autolimits!(axM)
 end
 
+on(sliders14.value) do val
+  autolimits!(ax3D)
+  autolimits!(axT)
+  autolimits!(axM)
+end
+
+on(sliders15.value) do val
+  autolimits!(ax3D)
+  autolimits!(axT)
+  autolimits!(axM)
+end
+
 return fig, model_shown
 end
 
@@ -449,8 +462,12 @@ app = App() do session::Session
         slider14 = DOM.div("T_soil: ", sliders14, sliders14.value)
         slider15 = DOM.div("M_soil: ", sliders15, sliders15.value)
 
+        paramcol = DOM.div("Parameters: ", slider2, slider3, slider4, slider5, slider6, slider7)
+        antcond = DOM.div("Antecedent conditions: ", slider8, slider9, slider10)
+        sop = DOM.div("Soil organic pools: ", slider11, slider12, slider13)
+        drivers = DOM.div("Drivers: ", slider14, slider15)
+
     	#return JSServe.record_states(session, DOM.div(slider1, slider2, slider3, slider4, slider5, slider6, fig))
-        return DOM.div(slider1, model_shown, slider2, slider3, slider4, slider5, slider6, slider7, slider8, slider9, slider10, slider11, slider12,
-                      slider13, slider14, slider15, fig)
+        return DOM.div(JSServe.TailwindCSS, rows(slider1, model_shown), rows(paramcol, antcond, sop, drivers), fig)
 end
 
