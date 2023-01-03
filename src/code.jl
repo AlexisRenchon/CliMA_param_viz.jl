@@ -1,9 +1,31 @@
+# Notes January 3rd 2023
+#
+# goal: function(::abstractmodel, drivers, ...)
+#
+# --> generates 3D and 2D plots for all parameterizations 
+# of an AbstractModel in ClimaLSM (and possibly ocean/atm)
+# with interactivity for parameters (e.g., default +- 50%)
+#
+# usable in slidev (slides), online docs, other web
+# also usable from Julia (not web)
+
 using ClimaLSM
 using ClimaLSM.Soil.Biogeochemistry
 
 # works with either GLMakie or WGLMakie
 
-using WGLMakie, SparseArrays
+using GLMakie, SparseArrays
+
+using ClimaCore
+import CLIMAParameters as CP
+using ClimaLSM.Domains: Column
+import ClimaLSM
+import ClimaLSM.Parameters as LSMP
+using Thermodynamics
+using SurfaceFluxes
+include(joinpath(pkgdir(ClimaLSM), "parameters", "create_parameters.jl"))
+FT = Float32
+earth_param_set = create_lsm_parameters(FT)
 
 function testing()
 fig = Figure(resolution = (1200, 1200))
@@ -11,7 +33,6 @@ ax3D = Axis3(fig[1,1], xlabel = "Soil temperature °C", ylabel = "Soil moisture 
 axT = Axis(fig[2,1], xlabel = "Soil temperature °C")
 axM = Axis(fig[3,1], xlabel = "Soil moisture [m³ m⁻³]")
 
-FT = Float32
 
 # Parameters should be supplied in m/kg/s (Pa... etc)
 P_sfc = FT(101e3) # 1 [Pa] pressure just above the soil surface at time t
@@ -86,8 +107,10 @@ s13 = sg.sliders[13].value
 s14 = sg.sliders[14].value
 s15 = sg.sliders[15].value
 
+parameters = SoilCO2ModelParameters{FT}(;D_ref = D_ref, earth_param_set = earth_param_set)
+
 parameters = @lift(
-                   SoilCO2ModelParameters(;
+                   SoilCO2ModelParameters{FT}(;
                    P_sfc = P_sfc,
                    Rb = $s2,
                    α1r = α1r,
@@ -102,15 +125,16 @@ parameters = @lift(
                    soluble_fraction = soluble_fraction,
                    D_liq = D_liq,
                    Estar = $s6,
-                   T_ref = T_ref,
+                   #T_ref = T_ref,
                    α4 = α4,
                    T_ref_soil = T_ref_soil,
-                   α5 = α5,
+                   #α5 = α5,
                    ν = $s7, 
                    θ_a100 = θ_a100,
                    D_ref = D_ref,
-                   P_ref = P_ref,
+                   #P_ref = P_ref,
                    b = b,
+                   earth_param_set = earth_param_set
                    )
                    )
 
@@ -237,7 +261,7 @@ T_soil = FT(20)
 θ_w = θ_l + θ_i
 θ_ant_roots = FT(0.3)
 θ_ant_microbe = FT(0.3)
-T_ant_soil = FT(303)
+T_ant_soil = FT(20)
 Cr = FT(10.0) # 2 [kg C m-3] Cr is root biomass carbon, see figure S5
 Csom = FT(5.0) # 3 [kg C m-3] soil organic C content at depth z
 Cmic = FT(1.0) # 4 [kg C m-3] Microbial C pool, ~ 1 % of Csom at DETECT site
@@ -286,6 +310,7 @@ parameters = @lift(
                    )
                    )
 
+
 fun = [
        #volumetric_air_content, # θ_a = f(θ_w; ν) 
        #co2_diffusivity, # D = f(T_soil, θ_w; θ_a, P_sfc, D_ref, T_ref, P_ref, θ_a100, b, ν)
@@ -296,9 +321,9 @@ fun = [
        #microbe_source_moisture_coeff,
        #decomposition_potential,
        #soluble_soil_carbon,
-       (x, y, p) -> microbe_source(x, x + FT(10.0), y, y, Csom, Cmic, p),
+       @lift((x, y, p) -> microbe_source(x, $s8, y, $s9, Csom, Cmic, p)),
        co2_diffusivity,
-       (x, y, p) -> root_source(x, x + FT(10.0), y, y, Cr, p) 
+       @lift((x, y, p) -> root_source(x, $s8, y, $s9, Cr, p)) 
       ]
 
 models = ["microbe source f(Vb, Km, CUE, Estar)", "diffusivity f(ν)", "root source f(Rb, Estar)"]
@@ -327,9 +352,9 @@ function fvecM(x, y, fun, params)
 end
 
 
-x = @lift(mat([10, 40], [0.0, 0.5], 30, fun[Int64($s1)], $parameters)[1]) 
-y = @lift(mat([10, 40], [0.0, 0.5], 30, fun[Int64($s1)], $parameters)[2])
-z = @lift(mat([10, 40], [0.0, 0.5], 30, fun[Int64($s1)], $parameters)[3])
+x = @lift(mat([10, 40], [0.0, 0.5], 30, $fun[Int64($s1)][], $parameters)[1]) 
+y = @lift(mat([10, 40], [0.0, 0.5], 30, $fun[Int64($s1)][], $parameters)[2])
+z = @lift(mat([10, 40], [0.0, 0.5], 30, $fun[Int64($s1)][], $parameters)[3])
 
 surface!(ax3D, x, y, z)
 
@@ -338,8 +363,8 @@ surface!(ax3D, x, y, z)
 x_axT = collect(10:1:40)
 x_axM = collect(0.0:0.0163:0.5)
 
-y_axT = @lift(fvec(x_axT, $s15, fun[Int64($s1)], $parameters))
-y_axM = @lift(fvecM($s14, x_axM, fun[Int64($s1)], $parameters))
+y_axT = @lift(fvec(x_axT, $s15, $fun[Int64($s1)][], $parameters))
+y_axM = @lift(fvecM($s14, x_axM, $fun[Int64($s1)][], $parameters))
 
 lines!(axT, x_axT, y_axT, color = :red, linewidth = 4)
 lines!(axM, x_axM, y_axM, color = :blue, linewidth = 4)
@@ -403,7 +428,7 @@ T_soil = FT(20)
 θ_w = θ_l + θ_i
 θ_ant_roots = FT(0.3)
 θ_ant_microbe = FT(0.3)
-T_ant_soil = FT(303)
+T_ant_soil = FT(20)
 Cr = FT(10.0) # 2 [kg C m-3] Cr is root biomass carbon, see figure S5
 Csom = FT(5.0) # 3 [kg C m-3] soil organic C content at depth z
 Cmic = FT(1.0) # 4 [kg C m-3] Microbial C pool, ~ 1 % of Csom at DETECT site
@@ -416,9 +441,9 @@ Km : Km/2 : Km + Km*2,
 CUE : CUE/2 : CUE + CUE*2,
 Estar : Estar/2 : Estar + Estar*2,
 ν : ν/2 : ν + ν*2,
-T_ant_soil - T_ant_soil*2 : T_ant_soil/2 : T_ant_soil + T_ant_soil*2,
-θ_ant_roots - θ_ant_roots*2 : θ_ant_roots/2 : θ_ant_roots + θ_ant_roots*2,
-θ_ant_microbe - θ_ant_microbe*2 : θ_ant_microbe/2 : θ_ant_microbe + θ_ant_microbe*2,
+FT(10):FT(1):FT(40),
+FT(0.0):FT(0.0163):FT(0.5),
+FT(0.0):FT(0.0163):FT(0.5),
 Cr - Cr*2 : Cr/2 : Cr + Cr*2,
 Csom - Csom*2 : Csom/2 : Csom + Csom*2,
 Cmic - Cmic*2 : Cmic/2 : Cmic + Cmic*2,
