@@ -1,4 +1,5 @@
 using WGLMakie, JSServe, SparseArrays
+# using GLMakie, SparseArrays
 
 using ClimaLSM
 using ClimaLSM.Soil.Biogeochemistry
@@ -19,17 +20,19 @@ function figure()
 
   params = SoilCO2ModelParameters{FT}(; earth_param_set = earth_param_set)
   labels = ["$(s)" for s in fieldnames(SoilCO2ModelParameters)[1:end-1]] # without earth_param_set
-  ranges = [[((getfield(params, i))/2 : (getfield(params, i))/4: (getfield(params, i))*2, getfield(params, i))] for i in fieldnames(SoilCO2ModelParameters)[1:end-1]]
+  ranges = [(val/2 : val/4: val*2, val) for val in [getfield(params, i) for i in fieldnames(SoilCO2ModelParameters)[1:end-1]]]
 
   sliders = []
   for (label, (range, startvalue)) in zip(labels, ranges)
     push!(sliders, (label = label, range = range, startvalue = startvalue))
   end
 
-  sg = SliderGrid(fig[2, 2], sliders..., width = 350, tellheight = false)
+  sg = SliderGrid(fig[3, 2], sliders..., width = 350, tellheight = false)
 
-  s1, s2, s3, s4, s5, s6, s7, s8, s9, s10, s11, s12, s13, s14, s15 = sg.sliders[:] # need to test
-
+  # line below should do as many s as length(labels) (number of params)
+  # s1, s2, s3, s4, s5, s6, s7, s8, s9, s10, s11, s12, s13 = sg.sliders[:] # need to test
+  sd = Dict("s$i" => s for (i, s) in enumerate(sg.sliders)) # e.g., sd["s1"]
+ 
   return fig
 end
 
