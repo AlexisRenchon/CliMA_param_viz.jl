@@ -37,6 +37,7 @@ function figure()
       parameters[] = SoilCO2ModelParameters{FT}(; args..., earth_param_set = earth_param_set)  # new args
   end
 
+  # Menu select the model to display
   fun = [(x, y, p) -> microbe_source(x, y, Csom, p), # need to give a value for Csom
          co2_diffusivity]
 
@@ -45,6 +46,8 @@ function figure()
   #### Also, some function (mat, fvec, plotting stuff) could be in separate script ####
   ####                                                                             ####
 
+  # Put mat, fvec and fvecM in a separate script
+  # #########################
   function mat(x, y, r, fun, params) # x and y, range - 2 values   
     x = collect(range(x[1], length=r, stop=x[2])) # T axis, °C from min to max
     y = collect(range(y[1], length=r, stop=y[2])) # M axis, % from min to max
@@ -66,7 +69,13 @@ function figure()
     vecM = fun.(FT.(repeat([x], 31)), FT.(y), repeat([params], 31))
     return vecM
   end
+  # ###########################
 
+  # ###########################
+  # Stuff below inside on(sd[i]) 
+  # Maybe write a separate script for what is inside on(sd[i])
+  # need on(menu.selection) do s (select fun)
+  # parameters changes on(sd[i]) ... 
   x = @lift(mat([10, 40], [0.0, 0.5], 30, fun[$s1], $parameters)[1]) 
   y = @lift(mat([10, 40], [0.0, 0.5], 30, fun[$s1], $parameters)[2])
   z = @lift(mat([10, 40], [0.0, 0.5], 30, fun[$s1], $parameters)[3])
@@ -78,6 +87,8 @@ function figure()
   x_axT = collect(10:1:40)
   x_axM = collect(0.0:0.0163:0.5)
 
+  # special stuff for driver 1 and driver 2 (e.g., temperature and moisture)
+  # so need a separate on(sd[drivers[i]])
   y_axT = @lift(fvec(x_axT, $s15, fun[$s1], $parameters))
   y_axM = @lift(fvecM($s14, x_axM, fun[$s1], $parameters))
 
@@ -94,6 +105,7 @@ function figure()
     autolimits!(axT)
     autolimits!(axM)
   end
+  # ###########################
 
   return fig
 end
