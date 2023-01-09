@@ -20,32 +20,145 @@ function figure()
 
   sliders = [(label = label, range = range, startvalue = startvalue) for (label, (range, startvalue)) in zip(labels, ranges)]
   sg = SliderGrid(fig[3, 2], sliders..., width = 350, tellheight = false)
-  # TO DO, either make Observable OK with Dict (sd), or find a way to automatically get specific number of s1, s2, s3... 
-  sd = Dict(i => sg.sliders[i].value for i in 1:length(sliders)) # @lift not happy with $sd[1]
-  s1, s2, s3, s4, s5, s6, s7, s8, s9, s10, s11, s12, s13 = [sg.sliders[i].value for i in 1:length(sliders)]
+  sd = Dict(i => sg.sliders[i].value for i in 1:length(sliders))
+
+  keys = Symbol.(labels) 
+  s = collect(values(sort(sd)))
+  # ss = @lift($s) # 
+  args = (; zip(keys, s)...)
+  # args_o = Observable(args) # if we want args to be the Observable
+
+  st = rand(13) # to test with non Observable type
+  argss = (; zip(keys, st)...) 
+  SoilCO2ModelParameters{FT}(; argss..., earth_param_set = earth_param_set) # this works
+
+  SoilCO2ModelParameters{FT}(; args..., earth_param_set = earth_param_set) # this is equivalent to the second parameters definition below - same error
+                                        # how to use @lift($) here?
+
+  @lift(SoilCO2ModelParameters{FT}(; $args..., earth_param_set = earth_param_set)) # MethodError: no method matching iterate(::Observable{Any})
 
   # TO DO, find a way to not have to write explicitly keyword arguments, so that it can be generalised to any ModelParameters
   parameters = @lift(
                    SoilCO2ModelParameters{FT}(;
-                   P_sfc = $s1,
-                   ν = $s2,
-                   θ_a100 = $s3,
-                   D_ref = $s4,
-                   b = $s5,
-                   D_liq = $s6,
-                   α_sx = $s7,
-                   Ea_sx = $s8,
-                   kM_sx = $s9,
-                   kM_o2 = $s10,
-                   O2_a = $s11,
-                   D_oa = $s12,
-                   p_sx = $s13, 
+                   P_sfc = $(sd[1]),
+                   ν = $(sd[2]),
+                   θ_a100 = $(sd[3]),
+                   D_ref = $(sd[4]),
+                   b = $(sd[5]),
+                   D_liq = $(sd[6]),
+                   α_sx = $(sd[7]),
+                   Ea_sx = $(sd[8]),
+                   kM_sx = $(sd[9]),
+                   kM_o2 = $(sd[10]),
+                   O2_a = $(sd[11]),
+                   D_oa = $(sd[12]),
+                   p_sx = $(sd[13]), 
                    earth_param_set = earth_param_set
                    )
                    )
 
+  parameters = 
+                   SoilCO2ModelParameters{FT}(;
+                   P_sfc = sd[1],
+                   ν = sd[2],
+                   θ_a100 = sd[3],
+                   D_ref = sd[4],
+                   b = sd[5],
+                   D_liq = sd[6],
+                   α_sx = sd[7],
+                   Ea_sx = sd[8],
+                   kM_sx = sd[9],
+                   kM_o2 = sd[10],
+                   O2_a = sd[11],
+                   D_oa = sd[12],
+                   p_sx = sd[13], 
+                   earth_param_set = earth_param_set
+                   )
+                   
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
   fun = [(x, y, p) -> microbe_source(x, y, Csom, p), # need to give a value for Csom
          co2_diffusivity]
+
+
+
+#vec = ["d1", "d2", "d3"]
+#values = ["foo", "bar", "baz"]
+#for i in 1:length(vec)
+#    eval(:(vec[i] = "$(values[i])"))
+#end
+
+
+for (i, variable) in enumerate(vec)
+    println(i)
+    println(variable)
+    #eval(:(variable = "$(values[i])"))
+end
+
+
+eval(:(vec[1] = "$(values[1])"))
+
+# Solution below introduces Global variables...
+Base.setproperty!(Main, :foo, "bar")
+
+# Solution below could work? Splat a NamedTuple
+t = (a=1, b=2, c=3)
+function f(x, y, z)
+    println("x = $x, y = $y, z = $z")
+end
+f(t...)
+
+t = [(labels[i] = i) for i = 1:3]
+
+# Somehow use a Dict?
+
+v = ["a", "b", "c"]
+t = NamedTuple{v}((i, i) for i in 1:length(v))
+t = NamedTuple{v}(Symbol(x) => i for (i, x) in enumerate(v))
+
+# below looks good
+keys = (:a, :b, :c)
+values = (1, 2, 3)
+(; zip(keys, values)...)
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
 
   ####
   #### Code below needs to be simplified and generalised. 
