@@ -21,148 +21,29 @@ function figure()
   sliders = [(label = label, range = range, startvalue = startvalue) for (label, (range, startvalue)) in zip(labels, ranges)]
   sg = SliderGrid(fig[3, 2], sliders..., width = 350, tellheight = false)
   sd = Dict(i => sg.sliders[i].value for i in 1:length(sliders))
+  sd_v = Dict(i => sg.sliders[i].value[] for i in 1:length(sliders))
 
   keys = Symbol.(labels) 
-  s = collect(values(sort(sd)))
-  # ss = @lift($s) # 
+  s = collect(values(sort(sd_v)))
   args = (; zip(keys, s)...)
-  # args_o = Observable(args) # if we want args to be the Observable
+  parameters = Observable(SoilCO2ModelParameters{FT}(; args..., earth_param_set = earth_param_set)) # this works
 
-  st = rand(13) # to test with non Observable type
-  argss = (; zip(keys, st)...) 
-  SoilCO2ModelParameters{FT}(; argss..., earth_param_set = earth_param_set) # this works
-
-  SoilCO2ModelParameters{FT}(; args..., earth_param_set = earth_param_set) # this is equivalent to the second parameters definition below - same error
-                                        # how to use @lift($) here?
-
-  @lift(SoilCO2ModelParameters{FT}(; $args..., earth_param_set = earth_param_set)) # MethodError: no method matching iterate(::Observable{Any})
-
-  # TO DO, find a way to not have to write explicitly keyword arguments, so that it can be generalised to any ModelParameters
-  parameters = @lift(
-                   SoilCO2ModelParameters{FT}(;
-                   P_sfc = $(sd[1]),
-                   ν = $(sd[2]),
-                   θ_a100 = $(sd[3]),
-                   D_ref = $(sd[4]),
-                   b = $(sd[5]),
-                   D_liq = $(sd[6]),
-                   α_sx = $(sd[7]),
-                   Ea_sx = $(sd[8]),
-                   kM_sx = $(sd[9]),
-                   kM_o2 = $(sd[10]),
-                   O2_a = $(sd[11]),
-                   D_oa = $(sd[12]),
-                   p_sx = $(sd[13]), 
-                   earth_param_set = earth_param_set
-                   )
-                   )
-
-  parameters = 
-                   SoilCO2ModelParameters{FT}(;
-                   P_sfc = sd[1],
-                   ν = sd[2],
-                   θ_a100 = sd[3],
-                   D_ref = sd[4],
-                   b = sd[5],
-                   D_liq = sd[6],
-                   α_sx = sd[7],
-                   Ea_sx = sd[8],
-                   kM_sx = sd[9],
-                   kM_o2 = sd[10],
-                   O2_a = sd[11],
-                   D_oa = sd[12],
-                   p_sx = sd[13], 
-                   earth_param_set = earth_param_set
-                   )
-                   
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+  # this on... do... should be placed at the end of the code
+  on(sd[1]) do val # only slider 1 for now
+      println(sd[1][])
+      sd_v = Dict(i => sg.sliders[i].value[] for i in 1:length(sliders))
+      s = collect(values(sort(sd_v)))
+      args = (; zip(keys, s)...)
+      parameters[] = SoilCO2ModelParameters{FT}(; args..., earth_param_set = earth_param_set)  # new args
+  end
 
   fun = [(x, y, p) -> microbe_source(x, y, Csom, p), # need to give a value for Csom
          co2_diffusivity]
 
-
-
-#vec = ["d1", "d2", "d3"]
-#values = ["foo", "bar", "baz"]
-#for i in 1:length(vec)
-#    eval(:(vec[i] = "$(values[i])"))
-#end
-
-
-for (i, variable) in enumerate(vec)
-    println(i)
-    println(variable)
-    #eval(:(variable = "$(values[i])"))
-end
-
-
-eval(:(vec[1] = "$(values[1])"))
-
-# Solution below introduces Global variables...
-Base.setproperty!(Main, :foo, "bar")
-
-# Solution below could work? Splat a NamedTuple
-t = (a=1, b=2, c=3)
-function f(x, y, z)
-    println("x = $x, y = $y, z = $z")
-end
-f(t...)
-
-t = [(labels[i] = i) for i = 1:3]
-
-# Somehow use a Dict?
-
-v = ["a", "b", "c"]
-t = NamedTuple{v}((i, i) for i in 1:length(v))
-t = NamedTuple{v}(Symbol(x) => i for (i, x) in enumerate(v))
-
-# below looks good
-keys = (:a, :b, :c)
-values = (1, 2, 3)
-(; zip(keys, values)...)
-  
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-  ####
-  #### Code below needs to be simplified and generalised. 
-  ####
+  ####                                                                             ####
+  #### Code below needs to be simplified and generalised                           ####
+  #### Also, some function (mat, fvec, plotting stuff) could be in separate script ####
+  ####                                                                             ####
 
   function mat(x, y, r, fun, params) # x and y, range - 2 values   
     x = collect(range(x[1], length=r, stop=x[2])) # T axis, °C from min to max
