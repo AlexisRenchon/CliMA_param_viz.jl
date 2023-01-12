@@ -17,19 +17,32 @@
 # 7. Little tweaks: better colors, maybe straight lines, output value, datainspector
 # 8. Eventually if complete App, 2 menu, 1 to chose AbstractModel, 1 to chose parameterization function
 # 9. Currently prototype with SoilCO2Model, need to test if work with others
-# 10. 
-
+# 10. Where to host? ClimaCoreMakie? ClimaLSM? New repo?
+# 11. Deal with cases where a parameterization function only depends on 1 driver (thus no 3D axis to be done)
+# 12. Deal with function that do not use earth_param_set (can use multiple dispatch or if)
+# 13. When defining functions, need a fixed driver if more than 2. (e.g., SOM here) This needs to be automatised
+# 14. Add units - of parameters and output (soil co2 production)
+#
+# Questions for Kat:
+# 1. Why do we need to do using ClimaLSM.Soil.Biogeochemistry specifically?
+# 2. We have 3 drivers explicitely declared with SoilCO2: temperature, moisture, SOM (prescribed for now)
+#    Do all AbstractModel declare some drivers? Are they always distinct from parameters? 
+#    Are constant parameters always somehow disctinct from variable parameters in their declaration? (e.g., using earth_param_set)
+# 3. Can we somehow retrieve the name of parameterization functions of an AbstractModel? My understanding is that we currently have 3 parameterisation functions for SoilCO2, but they don't seem to be contained in anything, so we can't list them somehow
+# 4. What automated range of parameters seems to be a good idea? (min:step:max, initial_value), note that it helps to have default values like we did for this (otherwise user would have to provide it) 
+# 5. Do you know a better/simpler way to do the mat function below? (compute function on a grid to generate matrix)
+# 6. Should drivers have a default value too? (if not, user can enter it)
 
 using WGLMakie, JSServe, SparseArrays
 # using GLMakie, SparseArrays
-using ClimaLSM
+using ClimaLSM # Soil.Biogeochemistry.microbe_source should work without line below
 using ClimaLSM.Soil.Biogeochemistry # I am curious as to why this needs to be specifically used even after using ClimaLSM
 include(joinpath(pkgdir(ClimaLSM), "parameters", "create_parameters.jl")) # this feels a bit weird to me... (why have parameters out of src?)
 
 function figure() # args could be: model::AbstractModel, drivers::?, limits::? (limit of drivers)) 
   # Figure, Axis3 (3D) and Axis (2D), Menu
   fig = Figure(resolution = (1200, 1200))
-  labels_d = ["Soil temperature [K]", "Soil moisture [m³ m⁻³]"] # Should this be taken from AbstractModel somehow? or an Arg of this function?
+  labels_d = ["Soil temperature [K]", "Soil moisture [m³ m⁻³]"] # Can be retrieved from PrecribedSoil struct (would be a different struct for prognostic) 
   menu_opt = ["CO2 production", "CO2 diffusivity"] # Should get these name directly from AbtractModel param function names
   menu = Menu(fig[1,1], options = menu_opt); m = menu.selection
   ax3D = Axis3(fig[2,1], xlabel = labels_d[1], ylabel = labels_d[2])
@@ -37,7 +50,7 @@ function figure() # args could be: model::AbstractModel, drivers::?, limits::? (
   axM = Axis(fig[4,1], xlabel = labels_d[2])
 
   # SliderGrid for parameters
-  FT = Float64
+  FT = Float64 
   earth_param_set = create_lsm_parameters(FT)
   params = SoilCO2ModelParameters{FT}(; earth_param_set = earth_param_set)
   labels = ["$(s)" for s in fieldnames(SoilCO2ModelParameters)[1:end-1]] # without earth_param_set
@@ -95,12 +108,6 @@ function figure() # args could be: model::AbstractModel, drivers::?, limits::? (
     return vecM
   end
 
-  # ###########################
-  # Stuff below inside on(sd[i])
-  # Should also be generalized to all case of AbstractModel
-  # Maybe write a separate script for what is inside on(sd[i])
-  # need on(menu.selection) do s (select fun)
-  # parameters changes on(sd[i]) ... 
   Csom = FT(5.0) # Should be either retrieved from AbstractModel or given by user as an arg
   x = @lift(mat([283, 313], [0.0, 0.5], 30, fun[$m], $parameters)[1]) 
   y = @lift(mat([283, 313], [0.0, 0.5], 30, fun[$m], $parameters)[2])
