@@ -1,7 +1,3 @@
-using Pkg
-using Dates
-Pkg.gc(;collect_delay=Dates.Day(0))
-
 using JSServe
 using parameterization_viz 
 
@@ -12,8 +8,9 @@ my_app = param_dashboard(
                          ([273, 303], [0.0, 0.5])
                         )
 
-# my_app = App(DOM.div("hello world"))
+app_name = get(ENV, "HEROKU_APP_NAME", "param-viz")
+url = "https://$(app_name).herokuapp.com"
 server = JSServe.Server(my_app, "0.0.0.0", parse(Int, ENV["PORT"]))
-#route!(server, "/" => App(DOM.div("hello world")))
+server.proxy_url = url
 
 wait(server)
